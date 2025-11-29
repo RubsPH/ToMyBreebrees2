@@ -70,13 +70,30 @@ function initMusic() {
     
     backgroundMusic.volume = 0.5; // Set volume to 50%
     
+    // Add error handler to see what's wrong
+    backgroundMusic.addEventListener('error', (e) => {
+        console.error('Audio error:', e);
+        console.error('Error code:', backgroundMusic.error?.code);
+        console.error('Error message:', backgroundMusic.error?.message);
+        // Try alternative path
+        if (backgroundMusic.error) {
+            console.log('Trying alternative audio source...');
+            backgroundMusic.src = './myusic.mp3';
+            backgroundMusic.load();
+        }
+    });
+    
     // Try to play when audio is ready
     backgroundMusic.addEventListener('canplaythrough', () => {
+        console.log('Audio ready to play');
         playMusic();
     }, { once: true });
     
     // Also try to play immediately
     playMusic();
+    
+    // Force load the audio
+    backgroundMusic.load();
 }
 
 // Play music function
