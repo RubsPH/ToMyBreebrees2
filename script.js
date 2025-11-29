@@ -78,44 +78,43 @@ function initMusic() {
         console.error('Error message:', backgroundMusic.error?.message);
     });
     
-    // Try to play when audio can play
+    // Try to play immediately when audio can play
     backgroundMusic.addEventListener('canplay', () => {
-        console.log('Audio can play');
-        if (!musicPlayed) {
-            playMusic();
-        }
-    });
+        console.log('Audio can play - attempting to play');
+        playMusic();
+    }, { once: false });
     
     backgroundMusic.addEventListener('loadeddata', () => {
-        console.log('Audio data loaded');
-        if (!musicPlayed) {
-            playMusic();
-        }
-    });
+        console.log('Audio data loaded - attempting to play');
+        playMusic();
+    }, { once: false });
     
-    // Try multiple times to play
-    setTimeout(() => {
-        if (!musicPlayed && backgroundMusic) {
-            playMusic();
-        }
-    }, 500);
-    
-    setTimeout(() => {
-        if (!musicPlayed && backgroundMusic) {
-            playMusic();
-        }
-    }, 1000);
-    
-    // Force load the audio
-    backgroundMusic.load();
+    backgroundMusic.addEventListener('canplaythrough', () => {
+        console.log('Audio can play through - attempting to play');
+        playMusic();
+    }, { once: false });
     
     // Try to play immediately
     playMusic();
+    
+    // Try multiple times aggressively
+    setTimeout(() => playMusic(), 100);
+    setTimeout(() => playMusic(), 200);
+    setTimeout(() => playMusic(), 300);
+    setTimeout(() => playMusic(), 500);
+    setTimeout(() => playMusic(), 1000);
+    setTimeout(() => playMusic(), 2000);
+    
+    // Force load the audio
+    backgroundMusic.load();
 }
 
-// Play music function
+// Play music function - tries to play immediately
 function playMusic() {
-    if (!backgroundMusic || musicPlayed) return;
+    if (!backgroundMusic) return;
+    
+    // If already playing, don't try again
+    if (musicPlayed && !backgroundMusic.paused) return;
     
     const playPromise = backgroundMusic.play();
     
@@ -124,10 +123,15 @@ function playMusic() {
             console.log('Music playing successfully');
             musicPlayed = true;
         }).catch(error => {
-            console.log('Autoplay prevented:', error);
-            // If autoplay is blocked, try on any user interaction
-            setupInteractionListeners();
+            // Only set up interaction listeners if we haven't tried many times yet
+            if (!musicPlayed) {
+                console.log('Autoplay prevented, will try on interaction');
+                setupInteractionListeners();
+            }
         });
+    } else {
+        // If play() returns undefined, try again
+        setTimeout(() => playMusic(), 100);
     }
 }
 
@@ -194,23 +198,30 @@ messageOverlay.addEventListener('click', (e) => {
     }
 });
 
-// Initialize everything when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize music as early as possible
+function initializeAll() {
+    // Initialize music FIRST and immediately
+    initMusic();
+    
     // Initialize hearts and sparkles
     initHearts();
     initSparkles();
-    
-    // Initialize music
-    initMusic();
-});
-
-// Also try if DOM is already loaded
-if (document.readyState === 'loading') {
-    // DOM is still loading, wait for DOMContentLoaded
-} else {
-    // DOM is already loaded
-    initHearts();
-    initSparkles();
-    initMusic();
 }
+
+// Try to initialize immediately if script loads after DOM
+if (document.readyState === 'loading') {
+    // DOM is still loading, wait for DOMContentLoaded but also try immediately
+    initMusic(); // Try music immediately
+    document.addEventListener('DOMContentLoaded', initializeAll);
+} else {
+    // DOM is already loaded - initialize everything immediately
+    initializeAll();
+}
+
+// Also try music one more time after a short delay
+setTimeout(() => {
+    if (!musicPlayed && backgroundMusic) {
+        playMusic();
+    }
+}, 50);
 
