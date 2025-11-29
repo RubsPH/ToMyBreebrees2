@@ -60,6 +60,7 @@ function initSparkles() {
 
 // Music player - wait for DOM to be ready
 let backgroundMusic;
+let musicPlayed = false;
 
 function initMusic() {
     backgroundMusic = document.getElementById('backgroundMusic');
@@ -75,52 +76,85 @@ function initMusic() {
         console.error('Audio error:', e);
         console.error('Error code:', backgroundMusic.error?.code);
         console.error('Error message:', backgroundMusic.error?.message);
-        // Try alternative path
-        if (backgroundMusic.error) {
-            console.log('Trying alternative audio source...');
-            backgroundMusic.src = './myusic.mp3';
-            backgroundMusic.load();
+    });
+    
+    // Try to play when audio can play
+    backgroundMusic.addEventListener('canplay', () => {
+        console.log('Audio can play');
+        if (!musicPlayed) {
+            playMusic();
         }
     });
     
-    // Try to play when audio is ready
-    backgroundMusic.addEventListener('canplaythrough', () => {
-        console.log('Audio ready to play');
-        playMusic();
-    }, { once: true });
+    backgroundMusic.addEventListener('loadeddata', () => {
+        console.log('Audio data loaded');
+        if (!musicPlayed) {
+            playMusic();
+        }
+    });
     
-    // Also try to play immediately
-    playMusic();
+    // Try multiple times to play
+    setTimeout(() => {
+        if (!musicPlayed && backgroundMusic) {
+            playMusic();
+        }
+    }, 500);
+    
+    setTimeout(() => {
+        if (!musicPlayed && backgroundMusic) {
+            playMusic();
+        }
+    }, 1000);
     
     // Force load the audio
     backgroundMusic.load();
+    
+    // Try to play immediately
+    playMusic();
 }
 
 // Play music function
 function playMusic() {
-    if (!backgroundMusic) return;
+    if (!backgroundMusic || musicPlayed) return;
     
     const playPromise = backgroundMusic.play();
     
     if (playPromise !== undefined) {
-        playPromise.catch(error => {
-            console.log('Autoplay prevented, will play on user interaction');
+        playPromise.then(() => {
+            console.log('Music playing successfully');
+            musicPlayed = true;
+        }).catch(error => {
+            console.log('Autoplay prevented:', error);
             // If autoplay is blocked, try on any user interaction
-            const playOnInteraction = () => {
-                if (backgroundMusic) {
-                    backgroundMusic.play().catch(() => {});
-                }
+            setupInteractionListeners();
+        });
+    }
+}
+
+// Setup listeners for user interaction
+function setupInteractionListeners() {
+    const playOnInteraction = () => {
+        if (backgroundMusic && !musicPlayed) {
+            backgroundMusic.play().then(() => {
+                console.log('Music started on user interaction');
+                musicPlayed = true;
+                // Remove all listeners once playing
                 document.removeEventListener('click', playOnInteraction);
                 document.removeEventListener('mousemove', playOnInteraction);
                 document.removeEventListener('touchstart', playOnInteraction);
                 document.removeEventListener('keydown', playOnInteraction);
-            };
-            document.addEventListener('click', playOnInteraction, { once: true });
-            document.addEventListener('mousemove', playOnInteraction, { once: true });
-            document.addEventListener('touchstart', playOnInteraction, { once: true });
-            document.addEventListener('keydown', playOnInteraction, { once: true });
-        });
-    }
+                document.removeEventListener('scroll', playOnInteraction);
+            }).catch(err => {
+                console.log('Still cannot play:', err);
+            });
+        }
+    };
+    
+    document.addEventListener('click', playOnInteraction, { once: true });
+    document.addEventListener('mousemove', playOnInteraction, { once: true });
+    document.addEventListener('touchstart', playOnInteraction, { once: true });
+    document.addEventListener('keydown', playOnInteraction, { once: true });
+    document.addEventListener('scroll', playOnInteraction, { once: true });
 }
 
 // Envelope click handler
@@ -129,6 +163,13 @@ const messageOverlay = document.getElementById('messageOverlay');
 const closeBtn = document.getElementById('closeBtn');
 
 envelope.addEventListener('click', () => {
+    // Ensure music plays when envelope is clicked
+    if (backgroundMusic && !musicPlayed) {
+        backgroundMusic.play().then(() => {
+            musicPlayed = true;
+        }).catch(() => {});
+    }
+    
     envelope.classList.add('opened');
     setTimeout(() => {
         messageOverlay.classList.add('show');
